@@ -153,19 +153,9 @@ class ProcessSoccerData:
 
 
 
-
-
-
-
-
-
-
-
-
-
 ############################################################################################     
     # return a dataframe of matches with options to filter by league and season  
-    def get_df_matches(self, leagues='ALL', season_min=1990, season_max=2021):        
+    def get_matches_df(self, leagues='ALL', season_min=1990, season_max=2021):        
         if leagues == 'ALL':
             return self.df_all_data if season_min == 1990 and season_max == 2021 else ProcessSoccerData._df_for_seasons(self.df_all_data, season_min, season_max)
         else:        
@@ -191,11 +181,11 @@ class ProcessSoccerData:
 #%%
 soccer = ProcessSoccerData()
 #%%
-df = soccer.get_df_matches()
-df1 = soccer.get_df_matches(season_min=2000, season_max=2020)
+df = soccer.get_matches_df()
+df1 = soccer.get_matches_df(season_min=2000, season_max=2020)
 leagues = ['championship', 'ligue_2']
-df2 = soccer.get_df_matches(leagues, season_min=1999, season_max=1999)
-df3 = soccer.get_df_matches(leagues)
+df2 = soccer.get_matches_df(leagues, season_min=1999, season_max=1999)
+df3 = soccer.get_matches_df(leagues)
 
 leagues = soccer.all_league_names()
 
@@ -208,40 +198,137 @@ soccer.add_feature_columns()
 class Feature_Data:
     pass
 #%%
-lg = ['championship']
-df2 = soccer.get_df_matches(lg, season_min=2000, season_max=2000)
-len(list(df2.Home_Team.unique()))
-
-match_id_and_url = dict(zip(list(df2.Match_id), list(df2.Link)))
-url_list = list(df2.Link)
-
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
 from selenium.webdriver.remote.webelement import WebElement
-
-def expand_shadow_element(element):
-  shadow_root = driver.execute_script('return arguments[0].shadowRoot', element)
-  return shadow_root
-
-def _accept_cookies(driver):
-    try:
-        time.sleep(5)
-        shadow_root = expand_shadow_element(driver.find_element(By.XPATH, '//*[@class="grv-dialog-host"]'))
-        button = shadow_root.find_element(By.CSS_SELECTOR, 'div#grv-popup__subscribe')
-        button.click()
-        print('subscribe button clicked')
-        time.sleep(1)
-        accept_cookies = driver.find_element(By.XPATH, '//*[@id="qc-cmp2-ui"]/div[2]/div')
-        accept_cookies.click()
-        print('cookies button clicked')
-    except:
-        print("No Cookies buttons found on page")
-
-#%%  
 import datetime
 from time import strptime
+
+class Scrape_Soccer_Data: 
+    def __init__(self, matches_df):
+        self.match_id_and_url = dict(zip(list(matches_df.Match_id), list(matches_df.Link)))
+        # self._get_match_id_and_url(matches_df)
+        root_url = 'https://www.besoccer.com/'
+        chrome_options = webdriver.ChromeOptions()
+        self.driver = webdriver.Chrome(options=chrome_options)       
+        self.driver.get(root_url)
+        self._accept_cookies(self.driver)         
+        self.team_urls = {} # list of all the team homepage urls
+        matches_data = {} # all of the historical data scraped for each match
+        elo = {} # most recent elo for each team 
+ 
+# def _get_match_id_and_url(self, matches_df):
+#     # len(list(df2.Home_Team.unique()))
+#     self.match_id_and_url  = dict(zip(list(matches_df.Match_id), list(matches_df.Link)))
+#     # url_list = list(df2.Link)
+        
+    def expand_shadow_element(self, element):
+        shadow_root = self.driver.execute_script('return arguments[0].shadowRoot', element)
+        return shadow_root
+
+    def _accept_cookies(self):
+        try:
+            time.sleep(5)
+            shadow_root = expand_shadow_element(self.driver.find_element(By.XPATH, '//*[@class="grv-dialog-host"]'))
+            button = shadow_root.find_element(By.CSS_SELECTOR, 'div#grv-popup__subscribe')
+            button.click()
+            print('subscribe button clicked')
+            time.sleep(1)
+            accept_cookies = self.driver.find_element(By.XPATH, '//*[@id="qc-cmp2-ui"]/div[2]/div')
+            accept_cookies.click()
+            print('cookies button clicked')
+        except:
+            print("No Cookies buttons found on page")
+
+    @staticmethod
+    def _scrape_players_and_positions(match_info, starting_lineup_web_element, home_or_away):
+        player_names = starting_lineup_web_element.find_elements(By.XPATH,'./a[position()>0]/div/p')
+        for j,player in enumerate(player_names):
+            if j == 0:
+                match_info[home_or_away + '_' + 'Goalkeeper'] = player.text
+            else:
+                player_num = home_or_away + '_' + 'Player' + '_' + str(j)
+                match_info[player_num] = player.text
+                position_and_number = player.find_elements(By.XPATH, '../../div[2]/div/span[position()>0]')
+                p_n_set = set([p_n.text for p_n in position_and_number])
+                match_info['Position'+ '_' + player_num] = list(p_n_set.intersection({'D', 'MF', 'F'}))[0] 
+
+    # get date, time and number of yellow/red cards(so can work out cards in prev matches)  
+    def _scrape_date_and_cards(self, match_data, events_url):       
+        self.driver.get(events_url)  
+        date_time = self.driver.find_element(By.XPATH, '//*[@class="date header-match-date "]').text 
+        date = date_time.split('.')[0].strip().split(' ')
+        dt_date = datetime.date(int(date[2]), strptime(date[1],'%b').tm_mon, int(date[0]))    
+        match_data['match_date'] = dt_date
+        match_data['match_day_of_week'] = dt_date.weekday()
+        match_data['match_time'] = date_time.split('.')[1].strip()
+    
+    # get starting lineup players and their position    
+    def _scrape_players_and_positions(self, match_data, line_up_url):   
+            self.driver.get(line_up_url)
+            home_starting_lineup = self.driver.find_element(By.XPATH, '//*[@id="mod_match_lineup"]/section/div/div[2]/div/div[1]')
+            Scrape_Soccer_Data._scrape_players_and_positions(match_data, home_starting_lineup, 'H')    
+            away_starting_lineup = driver.find_element(By.XPATH, '//*[@id="mod_match_lineup"]/section/div/div[2]/div/div[2]')
+            Scrape_Soccer_Data._scrape_players_and_positions(match_data, away_starting_lineup, 'A')
+
+    # get the most recent elo of the team with url specified
+    def scrape_current_elo(self, team_url):
+        self.driver.get(team_url)   
+        home_team = driver.find_element(By.XPATH, '//*[@id="team"]/main/section[1]/div[1]/div/div[1]/div/h2').text
+        self.elo[home_team] = int(driver.find_element(By.XPATH, '//*[@class="elo label-text"]/span').text)
+
+# scrape current elo data for all teams - from saved data
+    def scrape_all_current_elo_data(self):
+            for url in self.team_urls.values(): # get from saved data
+                self.scrape_current_elo(url)
+            
+    # scrape all historical match data and current elo for each team      
+    def scrape_match_data(self):
+        for i, (id, url) in enumerate(self.match_id_and_url.items()):
+            l = url.split('/')
+            home_team = l[4]
+            away_team = l[5]
+            self.driver.get(url) 
+            preview_url = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]/a[1]').get_attribute("href") 
+            events_url = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]/a[2]').get_attribute("href")
+            line_up_url = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]/a[3]').get_attribute("href")   
+            home_team_url = self.driver.find_element(By.XPATH, '//*[@itemprop="homeTeam"]/a').get_attribute("href")
+            away_team_url = self.driver.find_element(By.XPATH, '//*[@itemprop="awayTeam"]/a').get_attribute("href")
+            self.team_urls[home_team] = home_team_url
+            self.team_urls[away_team] = away_team_url    
+            match_data = {}    
+            self._scrape_date_and_cards(self, match_data, events_url)
+            self._scrape_players_and_positions(self, match_data, line_up_url)
+            self._scrape_previous_meetings_results(self, match_data, preview_url)   
+            self.matches_data[id] = match_data  # add the data for the match  
+            self.scrape_current_elo(home_team_url)
+            self.scrape_current_elo(away_team_url)
+            if i == 0:
+                break
+   
+#%%
+soccer = ProcessSoccerData()
+df = soccer.get_matches_df()
+#%%
+scrape_soccer = Scrape_Soccer_Data(df)
+#%%
+scrape_soccer.scrape_match_data()
+scrape_soccer.scrape_elo()
+
+
+           
+# lg = ['championship']
+# df2 = soccer.get_matches_df(lg, season_min=2000, season_max=2000)
+# len(list(df2.Home_Team.unique()))
+# match_id_and_url = dict(zip(list(df2.Match_id), list(df2.Link)))
+# url_list = list(df2.Link)
+
+
+
+#%%  
+
 
 chrome_options = webdriver.ChromeOptions()
 driver = webdriver.Chrome(options=chrome_options)   
@@ -252,7 +339,7 @@ _accept_cookies(driver)
 
 # get starting lineup players and their position 
 # home_or_away = 'H' or 'A'
-def get_players_and_positions(match_info, starting_lineup_web_element, home_or_away):
+def scrape_players_and_positions(match_info, starting_lineup_web_element, home_or_away):
     player_names = starting_lineup_web_element.find_elements(By.XPATH,'./a[position()>0]/div/p')
     for j,player in enumerate(player_names):
         if j == 0:
@@ -263,6 +350,16 @@ def get_players_and_positions(match_info, starting_lineup_web_element, home_or_a
             position_and_number = player.find_elements(By.XPATH, '../../div[2]/div/span[position()>0]')
             p_n_set = set([p_n.text for p_n in position_and_number])
             match_info['Position'+ '_' + player_num] = list(p_n_set.intersection({'D', 'MF', 'F'}))[0] 
+
+
+# get most recent elo of each team - create function!
+def scrape_team_elo()
+    driver.get(home_team_url)
+    home_team = driver.find_element(By.XPATH, '//*[@id="team"]/main/section[1]/div[1]/div/div[1]/div/h2').text
+    most_recent_elo[home_team] = int(driver.find_element(By.XPATH, '//*[@class="elo label-text"]/span').text)
+    driver.get(away_team_url)
+    away_team = driver.find_element(By.XPATH, '//*[@id="team"]/main/section[1]/div[1]/div/div[1]/div/h2').text
+    most_recent_elo[away_team] = int(driver.find_element(By.XPATH, '//*[@class="elo label-text"]/span').text)
 
 
 
@@ -290,30 +387,21 @@ for i, (id, url) in enumerate(match_id_and_url.items()):
     # get date, time and number of yellow/red cards(so can work out cards in prev matches)  
     driver.get(events_url)  
     date_time = driver.find_element(By.XPATH, '//*[@class="date header-match-date "]').text 
-    date = date_time.split('.')[0].strip()
-
-    ls = date.split(' ')
-    dt_date = datetime.date(year, month, day)
-    
-    
-    # match_info['date'] = date
+    date = date_time.split('.')[0].strip().split(' ')
+    dt_date = datetime.date(int(date[2]), strptime(date[1],'%b').tm_mon, int(date[0]))    
+    match_info['date'] = dt_date
+    match_info['day_of_week'] = dt_date.weekday()
     match_info['time'] = date_time.split('.')[1].strip()
     
-    ls = date.split(' ')
-    day = int(ls[0])
-    month = strptime(ls[1],'%b').tm_mon
-    year = int(ls[2])  
-    
-    day_of_week = datetime.date(year, month, day).weekday()      
-    print(day_of_week)
+
     
     
     # get starting lineup players and their position 
     driver.get(line_up_url)
     home_starting_lineup = driver.find_element(By.XPATH, '//*[@id="mod_match_lineup"]/section/div/div[2]/div/div[1]')
-    get_players_and_positions(match_info, home_starting_lineup, 'H')    
+    scrape_players_and_positions(match_info, home_starting_lineup, 'H')    
     away_starting_lineup = driver.find_element(By.XPATH, '//*[@id="mod_match_lineup"]/section/div/div[2]/div/div[2]')
-    get_players_and_positions(match_info, away_starting_lineup, 'A')
+    scrape_players_and_positions(match_info, away_starting_lineup, 'A')
     
     match_scraped_info[id] = match_info
     
@@ -329,6 +417,17 @@ for i, (id, url) in enumerate(match_id_and_url.items()):
     
             
 
+    if i == 30:
+        break
+    
+
+
+        
+
+#%%
+
+
+
     # goals_and_yellow_cards = player.find_elements(By.XPATH, '../div/div[position()>0]/p')
     # g_y_c = [g_y.text for g_y in goals_and_yellow_cards]
     # print(player.text, g_y_c)        
@@ -341,17 +440,6 @@ for i, (id, url) in enumerate(match_id_and_url.items()):
     #     }
     #     , ignore_index = True)
         
-    if i == 30:
-        break
-    
-
-
-        
-
-#%%
-
-
-
 
 
 
