@@ -78,6 +78,8 @@ class ProcessSoccerData:
 
 
 ############################################################################################   
+    def get_dictionary_df(self):
+        return self.df_dictionary
   
     # return a dataframe of matches with options to filter by league and season  
     def get_matches_df(self, leagues='ALL', season_min=1990, season_max=2021):        
