@@ -2,17 +2,19 @@
 import os
 import pandas as pd
 
+BASE_DIR = os.path.dirname(os.path.abspath('../__file__'))
+DATA_DIR = os.path.join(BASE_DIR, 'Football-Dataset/')
+ 
 # Process, clean and prepare soccer data for machine learning models 
 class ProcessSoccerData:
     def __init__(self):
-        self.data_path = '../Football-Dataset/'
         self.df_dictionary = {} #dictionary of dataframes, 1 for each league/season
         self._set_df_dictionary() #populate df_dictionary attribute
         self.df_all_data = pd.DataFrame() #dataframe of all data 
         self._set_df_all_data() #populate df_all_data
                 
     def _set_df_dictionary(self):
-        for (dirpath, dirnames, filenames) in os.walk(self.data_path):
+        for (dirpath, dirnames, filenames) in os.walk(DATA_DIR):
             for filename in filenames:
                 if filename != '.DS_Store':
                     self.df_dictionary[filename[:-4]] = pd.read_csv(dirpath + '/' + filename)
@@ -74,9 +76,9 @@ class ProcessSoccerData:
     def _set_df_all_data(self):
         self.df_all_data = pd.concat(self.df_dictionary.values(), ignore_index=True)
 
-############################################################################################  
- ##### PUBLIC FUNCTIONS #######   
- 
+
+############################################################################################   
+  
     # return a dataframe of matches with options to filter by league and season  
     def get_matches_df(self, leagues='ALL', season_min=1990, season_max=2021):        
         if leagues == 'ALL':
@@ -97,6 +99,8 @@ class ProcessSoccerData:
     # return a list of teams in the specified league
     def teams_in_league(self, league):
         temp_df = self.df_all_data[self.df_all_data['League'] == league]
-        return list(temp_df['Home_Team'].unique())
-        
-        
+        return list(temp_df['Home_Team'].unique())         
+
+
+
+# %%
