@@ -2,6 +2,7 @@
 from initial_data_processing import ProcessSoccerData
 from scraper import Scrape_Soccer_Data
 import pandas as pd
+import os
 
 #%%
 NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM = 5
@@ -12,7 +13,7 @@ class Feature_Engineering:
         self.dictionary_df = self.soccer_data.get_dictionary_df()
         # self.input_data_df = self.soccer_data.get_matches_df()
         self.scraped_match_data_df = Feature_Engineering._get_scraped_match_data_df()
-        self.feature_df = self._calculate_feature_df()
+        self.calculated_features_df = self._calculate_feature_df()
         # self.label_df = self._calculate_label_df
     
     # transform the scraped match data json into a dataframe
@@ -26,143 +27,125 @@ class Feature_Engineering:
         return scraped_df
                 
     def _calculate_feature_df(self):
+        path = '../data/calc_features.csv'
+        if os.path.exists(path):
+            return pd.read_csv(path)        
         feature_dfs = {} #dict of dfs to  concat at end
         for i, (key, df) in enumerate(self.dictionary_df.items()): 
-            feature_df = df.apply(lambda x: self._get_feature_data(x, df), axis = 1)
-            
-            feature_dfs[key] = feature_df
-            print(feature_df)
-            if i == 0:
+            feature_dfs[key] = df.apply(lambda x: self._get_feature_data(x, df), axis = 1) 
+            Feature_Engineering.save_df_as_csv(path)          
+            if i == 1:
                 break
-            
-            # feature_df.insert(0, 'Home_Team', self.df_all_data['Home_Team']) 
-            # feature_df.insert(1, 'Away_Team', self.df_all_data['Away_Team'])
-            # feature_df.insert(2, 'Round', self.df_all_data['Round'])
-            # feature_df.insert(3, 'Season', self.df_all_data['Season'])
-
-            
-        # self.feature_df = pd.concat(dictionary_feature_dfs.values(), ignore_index=True)
-     
+        return pd.concat(feature_dfs.values(), ignore_index=True)
+             
     # calculate feature data for the given row(match) 
     def _get_feature_data(self, row, df):
         feature_df = pd.DataFrame()
         home_team = row.Home_Team
         away_team = row.Away_Team
         round = row.Round
-        home_team_goals_scored_previous_matches = Feature_Engineering._get_goals_previous_matches(df, home_team, round, type='scored')
-        away_team_goals_scored_previous_matches = Feature_Engineering._get_goals_previous_matches(df, away_team, round, type='scored')
-        home_team_goals_conceded_previous_matches = self._get_goals_previous_matches(df, home_team, round, type='conceded')
-        away_team_goals_conceded_previous_matches = self._get_goals_previous_matches(df, away_team, round, type='conceded')
-        feature_df.loc[0, 'HT_goals_scored_prev_n_matches'] = home_team_goals_scored_previous_matches
-        feature_df.loc[0, 'AT_goals_scored_prev_n_matches'] = away_team_goals_scored_previous_matches
-        feature_df.loc[0, 'HT_goals_conceded_prev_n_matches'] = home_team_goals_conceded_previous_matches
-        feature_df.loc[0, 'AT_goals_conceded_prev_n_matches'] = away_team_goals_conceded_previous_matches
-        return feature_df.loc[0]  
-
-        # feature_df.loc[0, 'Home_GD'] = home_team_goals_scored_previous_matches - home_team_goals_conceded_previous_matches
-        # feature_df.loc[0, 'Away_GD'] = away_team_goals_scored_previous_matches - away_team_goals_conceded_previous_matches
-        # get goals from previous matches in the league for the team specified. (type is scored or conceded)
-
- 
-
+        feature_df = pd.DataFrame()
+        feature_df.loc[0, 'Match_id'] = row.Match_id
+        feature_df.loc[0, 'Round'] = round
+        # all goals scored/conceded by home and away team over n previous matches  
+        feature_df.loc[0, 'HomeTeam_Goals_Scored'] = Feature_Engineering.get_all_goals_previous_matches(df, home_team, round, type='scored')
+        feature_df.loc[0, 'AwayTeam_Goals_Scored'] = Feature_Engineering.get_all_goals_previous_matches(df, away_team, round, type='scored')
+        feature_df.loc[0, 'HomeTeam_Goals_Conceded'] = Feature_Engineering.get_all_goals_previous_matches(df, home_team, round, type='conceded')
+        feature_df.loc[0, 'AwayTeam_Goals_Conceded'] = Feature_Engineering.get_all_goals_previous_matches(df, away_team, round, type='conceded')        
+        # calculating attack and defense coeffs for both teams at home and away
+        feature_df.loc[0, 'HomeTeam_Attack_Coeff'] = Feature_Engineering.get_home_team_coeff(df, home_team, round, type='attack')
+        feature_df.loc[0, 'HomeTeam_Defense_Coeff'] = Feature_Engineering.get_home_team_coeff(df, home_team, round, type='defense')
+        feature_df.loc[0, 'AwayTeam_Attack_Coeff'] = Feature_Engineering.get_away_team_coeff(df, away_team, round, type='attack')
+        feature_df.loc[0, 'AwayTeam_Defense_Coeff'] = Feature_Engineering.get_away_team_coeff(df, away_team, round, type='defense')
+        return feature_df.loc[0] 
+        
+    # get goals from previous matches in the league for the team specified. (type is scored or conceded)
     @staticmethod
-    def _get_goals_previous_matches(df, team_name, round, type='scored'):
+    def get_all_goals_previous_matches(df, team_name, round, type='scored'):
         all_matches_for_team_df = df[(df['Home_Team'] == team_name) | (df['Away_Team'] == team_name)]
         previous_matches_df = all_matches_for_team_df[all_matches_for_team_df['Round'] < round].sort_values(by='Round', ascending=False).iloc[0:NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM,:]
         if type == 'scored':
-            return Feature_Engineering._get_goals_scored(df, previous_matches_df, team_name)
+            return Feature_Engineering.get_goals_scored(df, previous_matches_df, team_name)
         else:
-            return Feature_Engineering._get_goals_conceded(df, previous_matches_df, team_name)
+            return Feature_Engineering.get_goals_conceded(df, previous_matches_df, team_name)
         
     @staticmethod     
-    def _get_goals_scored(df, previous_matches_df, team_name):
+    def get_goals_scored(df, previous_matches_df, team_name):
         previous_home_goals_scored = int(previous_matches_df.Home_Goals[previous_matches_df.Home_Team == team_name].sum())
         previous_away_goals_scored = int(previous_matches_df.Away_Goals[previous_matches_df.Away_Team == team_name].sum())
         return (previous_home_goals_scored + previous_away_goals_scored)
   
     @staticmethod
-    def _get_goals_conceded(df, previous_matches_df, team_name):
+    def get_goals_conceded(df, previous_matches_df, team_name):
         previous_home_goals_conceded = int(previous_matches_df.Home_Goals[previous_matches_df.Away_Team == team_name].sum())
         previous_away_goals_conceded = int(previous_matches_df.Away_Goals[previous_matches_df.Home_Team == team_name].sum())
         return (previous_home_goals_conceded + previous_away_goals_conceded)  
 
-    
-    
+    # get goals scored and conceded by the home team at home, av goals scored and conceded at home over the whole league for the same time and divide to find the coeff
+    @staticmethod   
+    def get_home_team_coeff(df, team_name, round, type='attack'):
+        all_home_matches_for_team_df = df[(df['Home_Team'] == team_name)]
+        previous_matches_df = all_home_matches_for_team_df[all_home_matches_for_team_df['Round'] < round].sort_values(by='Round', ascending=False).iloc[0:NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM,:]        
+        league_previous_matches = df[df['Round'] < round].sort_values(by='Round', ascending=False)
+        rounds = list(previous_matches_df.Round.unique())
+        if len(rounds) != 0: 
+            league_previous_matches = league_previous_matches[(league_previous_matches['Round'] >= min(rounds)) & (league_previous_matches['Round'] <= max(rounds))]
+        avg_home_goals_scored_for_period = league_previous_matches.Home_Goals.mean()    
+        avg_home_goals_conceded_for_period = league_previous_matches.Away_Goals.mean() 
+        goals = 0
+        if type == 'attack':
+            return (int(previous_matches_df.Home_Goals.sum())/NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM) / avg_home_goals_scored_for_period
+        elif type == 'defense':
+            return (int(previous_matches_df.Away_Goals.sum())/NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM) / avg_home_goals_conceded_for_period
+
+    # get goals scored and conceded by the away team away, av goals scored and conceded away over the whole league for the same time and divide to find the coeff
+    @staticmethod   
+    def get_away_team_coeff(df, team_name, round, type='attack'):
+        all_away_matches_for_team_df = df[(df['Away_Team'] == team_name)]
+        previous_matches_df = all_away_matches_for_team_df[all_away_matches_for_team_df['Round'] < round].sort_values(by='Round', ascending=False).iloc[0:NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM,:]
+        league_previous_matches = df[df['Round'] < round].sort_values(by='Round', ascending=False)
+        rounds = list(previous_matches_df.Round.unique())
+        if len(rounds) != 0: 
+            league_previous_matches = league_previous_matches[(league_previous_matches['Round'] >= min(rounds)) & (league_previous_matches['Round'] <= max(rounds))]
+        avg_away_goals_scored_for_period = league_previous_matches.Home_Goals.mean()    
+        avg_away_goals_conceded_for_period = league_previous_matches.Away_Goals.mean() 
+        goals = 0
+        if type == 'attack':
+            return (int(previous_matches_df.Away_Goals.sum())/NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM) / avg_away_goals_scored_for_period
+        elif type == 'defense':
+            return (int(previous_matches_df.Home_Goals.sum())/NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM) / avg_away_goals_conceded_for_period
+
+    # get goals scored and conceded by the away team away
+    @staticmethod
+    def get_away_goals_previous_matches(df, team_name, round, type='scored'):
+        all_away_matches_for_team_df = df[(df['Away_Team'] == team_name)]
+        previous_matches_df = all_away_matches_for_team_df[all_away_matches_for_team_df['Round'] < round].sort_values(by='Round', ascending=False).iloc[0:NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM,:]
+        if type == 'scored':
+            return int(previous_matches_df.Away_Goals.sum())
+        elif type == 'conceded':
+            return int(previous_matches_df.Home_Goals.sum())
+        
+    @staticmethod
+    def save_df_as_csv(df, path):
+        df.to_csv (path, index = None, header=True) 
+
+        
     
     ##### Public #### 
     # inner join of the dataframe passed in and scraped_match_data_df     
-    def get_df_incl_scraped_data(self, df):
-        return pd.merge(df, self.scraped_match_data_df, on='Match_id').dropna()
+    # def get_df_incl_scraped_data(self, df):
+    #     return pd.merge(df, self.scraped_match_data_df, on='Match_id').dropna()
     
+    # def get_df_for_model(self, incl_scraped_data=False):
+    #     if incl_scraped_data:
+    #         pass
+            # return self.get_df_incl_scraped_data(feature_df? )
     # # just the input_df without the scraped data   
     # def get_df_excl_scraped_data(self):
     #     return self.input_data_df    
 #%%
 feature_eng = Feature_Engineering()
-
-#%%        
-
         
-    # def _calculate_feature_df(self):
-    #     dictionary_feature_dfs = {}
-    #     for key, df in self.df_dictionary.items(): 
-    #         feature_df = df.apply(lambda x: self._get_feature_data(x, df), axis = 1)
-            
-            
-    #         # feature_df.insert(0, 'Home_Team', self.df_all_data['Home_Team']) 
-    #         # feature_df.insert(1, 'Away_Team', self.df_all_data['Away_Team'])
-    #         # feature_df.insert(2, 'Round', self.df_all_data['Round'])
-    #         # feature_df.insert(3, 'Season', self.df_all_data['Season'])
-            
-    #         # dictionary_feature_dfs[key] = feature_df
-            
-    #     # self.feature_df = pd.concat(dictionary_feature_dfs.values(), ignore_index=True)
-      
-    
-    # calculate feature data for the given row(match) in the df_all_data dataframe 
-    # def _get_feature_data(self, row, df):
-    #     feature_df = pd.DataFrame()
-    #     home_team = row.Home_Team
-    #     away_team = row.Away_Team
-    #     round = row.Round
-        
-        
-        
-        # home_team_goals_scored_previous_matches = self.get_goals_previous_matches(df, home_team, round, type='scored')
-        # away_team_goals_scored_previous_matches = self.get_goals_previous_matches(away_team, round, num_previous_matches=2, type='scored')
-        # home_team_goals_conceded_previous_matches = self.get_goals_previous_matches(home_team, round, num_previous_matches=2, type='conceded')
-        # away_team_goals_conceded_previous_matches = self.get_goals_previous_matches(away_team, round, num_previous_matches=2, type='conceded')
-        # feature_df = pd.DataFrame()
-        # # Home_GD - goal diff over previous matches - make ex weighted average
-        # feature_df.loc[0, 'HomeTeam_Goals_Scored'] = home_team_goals_scored_previous_matches
-        # feature_df.loc[0, 'AwayTeam_Goals_Scored'] = away_team_goals_scored_previous_matches
-        # feature_df.loc[0, 'HomeTeam_Goals_Conceded'] = home_team_goals_conceded_previous_matches
-        # feature_df.loc[0, 'AwayTeam_Goals_Conceded'] = away_team_goals_conceded_previous_matches
-    #     feature_df.loc[0, 'Home_GD'] = home_team_goals_scored_previous_matches - home_team_goals_conceded_previous_matches
-    #     feature_df.loc[0, 'Away_GD'] = away_team_goals_scored_previous_matches - away_team_goals_conceded_previous_matches
-    #     return feature_df.loc[0] 
-
-    # # get goals from previous matches in the league for the team specified. (type is scored or conceded)
-    # def get_goals_previous_matches(self, team_name, round, type='scored'):  
-    #     all_matches_for_team_df = self.input_df[(self.input_df['Home_Team'] == team_name) | (self.input_df['Away_Team'] == team_name)]
-    #     previous_matches_df = all_matches_for_team_df[all_matches_for_team_df['Round'] < round]  
-    #     if type == 'scored':
-    #         return PrepareSoccerData.get_goals_scored(previous_matches_df, team_name)
-    #     else:
-    #         return PrepareSoccerData.get_goals_conceded(previous_matches_df, team_name)
-        
-    # @staticmethod     
-    # def get_goals_scored(previous_matches_df, team_name):
-    #     previous_home_goals_scored = int(previous_matches_df.Home_goals[previous_matches_df.Home_Team == team_name].sum())
-    #     previous_away_goals_scored = int(previous_matches_df.Away_goals[previous_matches_df.Away_Team == team_name].sum())
-    #     return (previous_home_goals_scored + previous_away_goals_scored)
-  
-    # @staticmethod
-    # def get_goals_conceded(previous_matches_df, team_name):
-    #     previous_home_goals_conceded = int(previous_matches_df.Home_goals[previous_matches_df.Away_Team == team_name].sum())
-    #     previous_away_goals_conceded = int(previous_matches_df.Away_goals[previous_matches_df.Home_Team == team_name].sum())
-    #     return (previous_home_goals_conceded + previous_away_goals_conceded)  
-
 #%%
 ###################
     # utility function for below function 
@@ -215,3 +198,7 @@ scraped_df[['Match_id']] = scraped_df[['Match_id']].apply(pd.to_numeric)
 
 #%%
 
+feature_eng.calculated_features_df.to_csv('../data/test.csv')
+# df.to_csv (r'C:\Users\John\Desktop\export_dataframe.csv', index = None, header=True) 
+
+# %%
