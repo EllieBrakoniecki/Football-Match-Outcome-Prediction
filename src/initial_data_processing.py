@@ -77,7 +77,7 @@ class ProcessSoccerData:
         self.df_all_data = pd.concat(self.df_dictionary.values(), ignore_index=True)
 
 
-############################################################################################   
+####################### Public functions ######################################################   
     def get_dictionary_df(self):
         return self.df_dictionary
   
@@ -103,6 +103,3 @@ class ProcessSoccerData:
         temp_df = self.df_all_data[self.df_all_data['League'] == league]
         return list(temp_df['Home_Team'].unique())         
 
-
-
-# %%
