@@ -34,8 +34,8 @@ class Feature_Engineering:
         feature_dfs = {} #dict of dfs to  concat at end
         for i, (key, df) in enumerate(self.dictionary_df.items()): 
             feature_dfs[key] = df.apply(lambda x: self._get_feature_data(x, df), axis = 1)          
-            if i == 0:
-                break
+            # if i == 0:
+            #     break
         df = pd.concat(feature_dfs.values(), ignore_index=True)
         Feature_Engineering._save_df_as_csv(df,path) 
         return df
@@ -58,8 +58,8 @@ class Feature_Engineering:
         # calculating attack and defense coeffs for both teams at home and away
         feature_df.loc[0, 'HomeTeam_Attack_Coeff'] = Feature_Engineering.get_home_team_coeff(df, home_team, round, match_id, type='attack')
         feature_df.loc[0, 'HomeTeam_Defense_Coeff'] = Feature_Engineering.get_home_team_coeff(df, home_team, round, match_id, type='defense')
-        feature_df.loc[0, 'AwayTeam_Attack_Coeff'] = Feature_Engineering.get_away_team_coeff(df, away_team, round, type='attack')
-        feature_df.loc[0, 'AwayTeam_Defense_Coeff'] = Feature_Engineering.get_away_team_coeff(df, away_team, round, type='defense')
+        feature_df.loc[0, 'AwayTeam_Attack_Coeff'] = Feature_Engineering.get_away_team_coeff(df, away_team, round, match_id, type='attack')
+        feature_df.loc[0, 'AwayTeam_Defense_Coeff'] = Feature_Engineering.get_away_team_coeff(df, away_team, round, match_id, type='defense')
 
         #calculating length of each teams win/lose/draw streak 
         H_win_streak, H_loss_streak, H_draw_streak = Feature_Engineering.get_streaks_for_team(df, home_team, match_id)
@@ -141,7 +141,7 @@ class Feature_Engineering:
 
     # get goals scored and conceded by the away team away, av goals scored and conceded away over the whole league for the same time and divide to find the coeff
     @staticmethod   
-    def get_away_team_coeff(df, team_name, round, type='attack'):
+    def get_away_team_coeff(df, team_name, round, match_id, type='attack'):
         all_away_matches_for_team_df = df[(df['Away_Team'] == team_name)]
         previous_matches_df = all_away_matches_for_team_df[all_away_matches_for_team_df['Round'] < round].sort_values(by='Round', ascending=False).iloc[0:NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM,:]
         league_previous_matches = df[df['Round'] < round].sort_values(by='Round', ascending=False)
@@ -217,7 +217,9 @@ class Feature_Engineering:
         return list(temp_df['Home_Team'].unique())    
           
 #%%
-feature_eng = Feature_Engineering(calc_features=False)
+feature_eng = Feature_Engineering(calc_features=True)
+
+
 #%%
 # df = feature_eng.dictionary_df['Results_1997_serie_b']
 # home_team = 'Chievo'
