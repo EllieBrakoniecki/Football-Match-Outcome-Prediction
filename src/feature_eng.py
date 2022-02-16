@@ -156,18 +156,7 @@ class Feature_Engineering:
             elif type == 'defense':
                 return (int(previous_matches_df.Home_Goals.sum())/NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM) / avg_away_goals_conceded_for_period
         except:
-            print('Error calculating coeff for match_id:', match_id)
-
-
-    # get goals scored and conceded by the away team away
-    @staticmethod
-    def get_away_goals_previous_matches(df, team_name, round, type='scored'):
-        all_away_matches_for_team_df = df[(df['Away_Team'] == team_name)]
-        previous_matches_df = all_away_matches_for_team_df[all_away_matches_for_team_df['Round'] < round].sort_values(by='Round', ascending=False).iloc[0:NO_PREV_MATCHES_TO_CALULATE_AVERAGE_FROM,:]
-        if type == 'scored':
-            return int(previous_matches_df.Away_Goals.sum())
-        elif type == 'conceded':
-            return int(previous_matches_df.Home_Goals.sum())        
+            print('Error calculating coeff for match_id:', match_id)      
         
     @staticmethod
     def _save_df_as_csv(df, path):
@@ -200,8 +189,10 @@ class Feature_Engineering:
         df = Feature_Engineering._merge_dfs(self.input_data_df, self.feature_df)         
         if include_scraped_data:
             df = Feature_Engineering._merge_dfs(df, self.scraped_match_data_df)
+        df.drop(labels=['Round_y'], axis=1, inplace=True)
+        # df.drop(df.columns[0], axis=1)
+        df.rename(columns={'Round_x':'Round'}, inplace=True)
         return Feature_Engineering._get_matches_df(df, leagues, season_min, season_max )
-        # return df
     
     def get_scraped_data(self):
         return self.scraped_match_data_df
@@ -217,27 +208,7 @@ class Feature_Engineering:
         return list(temp_df['Home_Team'].unique())    
           
 #%%
-feature_eng = Feature_Engineering(calc_features=True)
+# feature_eng = Feature_Engineering(calc_features=False)
+# df = feature_eng.get_data()
 
-
-#%%
-# df = feature_eng.dictionary_df['Results_1997_serie_b']
-# home_team = 'Chievo'
-# #%%
-# home_matches_for_team_df = df[(df['Home_Team'] == home_team)]
-# away_matches_for_team_df = df[(df['Away_Team'] == home_team)]
-# #%%
-# home_matches_for_team_df['Points'] = home_matches_for_team_df.Points_Home_Team
-# away_matches_for_team_df['Points'] = away_matches_for_team_df.Points_Away_Team
-# df = pd.concat([home_matches_for_team_df,away_matches_for_team_df], ignore_index=True).sort_values('Match_id').reset_index()
-# #%%
-# df['start_of_streak'] = df.Points.ne(df.Points.shift())
-# df['streak_id'] = df['start_of_streak'].cumsum()
-# df['streak_counter'] = df.groupby('streak_id').cumcount() + 1
-# # df.to_csv('../data/test.csv')
-# #%%
-# prev_index = (df.index[df['Match_id']==131332]).tolist()[0] -1
-# # if prev_index>0:
-# points = df['Points']
-# points_at_prev_index = points[prev_index] 
-#
+# %%
