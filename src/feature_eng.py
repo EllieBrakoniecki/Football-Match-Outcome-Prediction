@@ -218,9 +218,7 @@ class Feature_Engineering:
           
 #%%
 feature_eng = Feature_Engineering(calc_features=False)
-
-# %%
-
+#%%
 # df = feature_eng.dictionary_df['Results_1997_serie_b']
 # home_team = 'Chievo'
 # #%%
@@ -240,4 +238,4 @@ feature_eng = Feature_Engineering(calc_features=False)
 # # if prev_index>0:
 # points = df['Points']
 # points_at_prev_index = points[prev_index] 
-# %%
+#
