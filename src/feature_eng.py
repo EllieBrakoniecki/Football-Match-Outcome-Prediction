@@ -17,7 +17,6 @@ class Feature_Engineering:
         # self.label_df = self._calculate_label_df
     
     # transform the scraped match data json into a dataframe
-    # the scraped data is 2015 - 2020 (for now as takes too long to scrape locally )
     @staticmethod
     def _get_scraped_match_data_df():
         scraped_data_dict = Scrape_Soccer_Data.read_data('../data/matches_data')    
@@ -182,7 +181,7 @@ class Feature_Engineering:
 
 ###################### Public functions ###########################
 
-    # gets all the data for the given value of the params.
+    # gets all the data for the given values of the params.
     def get_data(self, include_scraped_data=False, leagues='ALL', season_min=1991, season_max=2021):
         df = Feature_Engineering._merge_dfs(self.input_data_df, self.feature_df)         
         if include_scraped_data:
