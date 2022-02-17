@@ -182,9 +182,7 @@ class Feature_Engineering:
 
 ###################### Public functions ###########################
 
-    # gets all the data for the given value of the params. Note that if include_scraped_data 
-    # is set to true only years 2015-2021 will be returned as this is only years that
-    # have been scraped so far
+    # gets all the data for the given value of the params.
     def get_data(self, include_scraped_data=False, leagues='ALL', season_min=1991, season_max=2021):
         df = Feature_Engineering._merge_dfs(self.input_data_df, self.feature_df)         
         if include_scraped_data:
