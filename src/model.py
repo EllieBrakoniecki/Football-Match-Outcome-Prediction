@@ -91,8 +91,13 @@ for model, name in zip(models, names):
 ###
 # todo: run models for all other features incl scraped features(go back and scrape historical elo
 # Scale features first, plot best fits, categorical vars -> use pd.get_dummies().
-#plot results of classifier training 
+# Grid search
+# plot results of classifier training 
 # ideas: get winning odds, scrape probs and compare with model probs, simulate betting winning
+# make pipeline more efficient 
+# edit scraper class to allow selection of features to scrape
+# histograms etc of calculated and scraped features
+
 
     
     
