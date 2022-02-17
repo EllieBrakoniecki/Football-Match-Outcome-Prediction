@@ -65,6 +65,7 @@ for model, name in zip(models, names):
     y_validation_pred = model.predict(X_validation)
     y_test_pred = model.predict(X_test)
 
+    
     train_loss = mean_squared_error(y_train, y_train_pred)
     validation_loss = mean_squared_error(y_validation, y_validation_pred)
     test_loss = mean_squared_error(y_test, y_test_pred)
@@ -90,6 +91,7 @@ for model, name in zip(models, names):
     
 ###
 # todo: run models for all other features incl scraped features
+# best loss function for each model? 
 # Scale features first, plot best fits, categorical vars -> use pd.get_dummies().
 # Grid search
 # plot results of classifier training 
@@ -97,6 +99,7 @@ for model, name in zip(models, names):
 # make pipeline more efficient 
 # edit scraper class to allow selection of features to scrape - done
 # histograms etc of calculated and scraped features
+# SCRAPE 2022 and predict future matches
 
 
     

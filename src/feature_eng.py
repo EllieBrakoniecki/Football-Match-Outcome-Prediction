@@ -162,7 +162,7 @@ class Feature_Engineering:
     def _save_df_as_csv(df, path):
         df.to_csv (path, index = None, header=True) 
 
-    # Join dataframes on Match_id column and drop and NaN's 
+    # Join dataframes on Match_id column and drop NaN's 
     @staticmethod
     def _merge_dfs(df1, df2):
         return pd.merge(df1, df2, on='Match_id').dropna()

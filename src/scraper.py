@@ -36,6 +36,15 @@ class Scrape_Soccer_Data:
         self.team_urls = {} # team homepage urls
         self.matches_data = {} # historical data scraped for each match
         self.elo_data = {} # most recent elo for each team 
+        self.load_saved_data() # populate dictionary attributes from saved data
+        
+    def load_saved_data(self):
+        if os.path.exists(self.matches_data_path):                        
+            self.matches_data = Scrape_Soccer_Data.read_data(self.matches_data_path) 
+        if os.path.exists(self.elo_data_path):            
+            self.elo_data = Scrape_Soccer_Data.read_data(self.elo_data_path) 
+        if os.path.exists(self.team_url_data_path):            
+            self.team_urls = Scrape_Soccer_Data.read_data(self.team_url_data_path) 
       
     def set_headless_chrome_options(self):
         self.chrome_options.add_argument("--headless")
@@ -65,7 +74,7 @@ class Scrape_Soccer_Data:
         except:
             print("No Cookies buttons found on page")
 
-    def scrape_elo_for_teams_in_match(self, match_data, analysis_url):
+    def _scrape_elo_for_teams_in_match(self, match_data, analysis_url):
         self.driver.get(analysis_url)
         try:
             table = self.driver.find_element(By.XPATH, '//*[@class="comparison"]/div/div/table/tbody')
@@ -187,12 +196,6 @@ class Scrape_Soccer_Data:
             
     # scrape match data for each team      
     def scrape_match_data(self, scrape_elo=False, scrape_players=False, scrape_cards=False, scrape_previous_mtgs=False, scrape_latest_elo=False):
-        if os.path.exists(self.matches_data_path):                        
-            self.matches_data = Scrape_Soccer_Data.read_data(self.matches_data_path) 
-        if os.path.exists(self.elo_data_path):            
-            self.elo_data = Scrape_Soccer_Data.read_data(self.elo_data_path) 
-        if os.path.exists(self.team_url_data_path):            
-            self.team_urls = Scrape_Soccer_Data.read_data(self.team_url_data_path) 
         for i, (id, url) in enumerate(self.match_id_and_url.items()):
             l = url.split('/')
             home_team = l[4]
@@ -204,7 +207,7 @@ class Scrape_Soccer_Data:
                 try:
                     menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
                     analysis_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Analysis")]').get_attribute("href")
-                    self.scrape_elo_for_teams_in_match(match_data, analysis_url)
+                    self._scrape_elo_for_teams_in_match(match_data, analysis_url)
                 except:
                     print('no Analysis url found for:', url)
             if scrape_cards:
@@ -245,6 +248,9 @@ class Scrape_Soccer_Data:
         if scrape_latest_elo:
             self.save_data("elo_data", self.elo_data) 
             self.save_data("team_url_data", self.team_urls)
+            
+    def get_scraped_match_data(self):
+        return self.matches_data
    
 #%%
 from initial_data_processing import ProcessSoccerData
@@ -252,6 +258,8 @@ soccer_data = ProcessSoccerData()
 #%%
 df = soccer_data.get_matches_df(season_min=2000, season_max=2021)
 scrape_soccer = Scrape_Soccer_Data(df, headless=True)
+scrape_soccer.get_scraped_match_data()
+#%%
 scrape_soccer.scrape_match_data(scrape_elo=True, scrape_previous_mtgs=True)
 
 #%%
@@ -298,3 +306,4 @@ scrape_soccer.scrape_match_data(scrape_elo=True, scrape_previous_mtgs=True)
 # analysis_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Analysis")]').get_attribute("href")
 
 # %%
+soccer_data = ProcessSoccerData()
