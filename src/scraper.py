@@ -201,42 +201,57 @@ class Scrape_Soccer_Data:
             match_data['Link'] = url  
             self.driver.get(url)  
             if scrape_elo:
-                menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
-                analysis_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Analysis")]').get_attribute("href")
-                self.scrape_elo_for_teams_in_match(match_data, analysis_url)
+                try:
+                    menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
+                    analysis_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Analysis")]').get_attribute("href")
+                    self.scrape_elo_for_teams_in_match(match_data, analysis_url)
+                except:
+                    print('no Analysis url found for:', url)
             if scrape_cards:
-                menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
-                events_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Events")]').get_attribute("href")
-                self._scrape_date_and_cards(match_data, events_url)
+                try:
+                    menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
+                    events_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Events")]').get_attribute("href")
+                    self._scrape_date_and_cards(match_data, events_url)
+                except: 
+                    print('no Events url found for:', url)
             if scrape_players: 
-                menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
-                line_up_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Line-ups")]').get_attribute("href")  
-                self._scrape_players_and_positions_both_teams(match_data, line_up_url)
+                try:
+                    menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
+                    line_up_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Line-ups")]').get_attribute("href")  
+                    self._scrape_players_and_positions_both_teams(match_data, line_up_url)
+                except:
+                    print('no Line up url found for:', url)
             if scrape_previous_mtgs:
-                menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
-                preview_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Preview")]').get_attribute("href") 
-                self._scrape_previous_meetings_results(match_data, preview_url)   
+                try:
+                    menu_scroll = self.driver.find_element(By.XPATH, '//*[@class="menu-scroll"]')          
+                    preview_url = menu_scroll.find_element(By.XPATH, './a[contains(.,"Preview")]').get_attribute("href") 
+                    self._scrape_previous_meetings_results(match_data, preview_url)   
+                except: 
+                    print('no preview url found for:', url)
             if scrape_latest_elo:
-                home_team_url = self.driver.find_element(By.XPATH, '//*[@itemprop="homeTeam"]/a').get_attribute("href")
-                away_team_url = self.driver.find_element(By.XPATH, '//*[@itemprop="awayTeam"]/a').get_attribute("href")
-                self.team_urls[home_team] = home_team_url
-                self.team_urls[away_team] = away_team_url   
+                try:
+                    home_team_url = self.driver.find_element(By.XPATH, '//*[@itemprop="homeTeam"]/a').get_attribute("href")
+                    away_team_url = self.driver.find_element(By.XPATH, '//*[@itemprop="awayTeam"]/a').get_attribute("href")
+                    self.team_urls[home_team] = home_team_url
+                    self.team_urls[away_team] = away_team_url
+                except: 
+                    print('no team urls found for match url:', url)   
                 self.scrape_current_elo(home_team_url) 
                 self.scrape_current_elo(away_team_url)  
             self.matches_data[id] = match_data 
             # if i == 2:
-            #     break                        
+            #     break         
+        self.save_data("matches_data", self.matches_data)               
         if scrape_latest_elo:
             self.save_data("elo_data", self.elo_data) 
             self.save_data("team_url_data", self.team_urls)
-        self.save_data("matches_data", self.matches_data)
    
 #%%
 from initial_data_processing import ProcessSoccerData
 soccer_data = ProcessSoccerData()
 #%%
 df = soccer_data.get_matches_df(season_min=2000, season_max=2021)
-scrape_soccer = Scrape_Soccer_Data(df, headless=False)
+scrape_soccer = Scrape_Soccer_Data(df, headless=True)
 scrape_soccer.scrape_match_data(scrape_elo=True, scrape_previous_mtgs=True)
 
 #%%
@@ -250,18 +265,8 @@ scrape_soccer.scrape_match_data(scrape_elo=True, scrape_previous_mtgs=True)
 # scrape_soccer = Scrape_Soccer_Data(df3, headless=True)
 # scrape_soccer.scrape_match_data()
 # #%%
-# leagues = list(df1.League.unique())
-# for league in leagues:
-#     df = soccer_data.get_matches_df(league,season_min=2018, season_max=2018)
-#     scrape_soccer = Scrape_Soccer_Data(df3, headless=True)
-#     scrape_soccer.scrape_match_data()
 
-# # for i in range(2015, 2022):
-# #     season_min, season_max = i, i
-# #         df = soccer_data.get_matches_df(ch,season_min=2017, season_max=2017 )
-# #         scrape_soccer = Scrape_Soccer_Data(df3, headless=True)
-# #         scrape_soccer.scrape_match_data()
-# #%%
+
 # scrape_soccer.scrape_most_recent_elo_data()
 
 # %%
