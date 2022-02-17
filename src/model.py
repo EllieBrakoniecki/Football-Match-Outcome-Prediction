@@ -89,13 +89,13 @@ for model, name in zip(models, names):
     print(name, ":", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), " - Time taken: ", time.time() - start)
     
 ###
-# todo: run models for all other features incl scraped features(go back and scrape historical elo
+# todo: run models for all other features incl scraped features
 # Scale features first, plot best fits, categorical vars -> use pd.get_dummies().
 # Grid search
 # plot results of classifier training 
 # ideas: get winning odds, scrape probs and compare with model probs, simulate betting winning
 # make pipeline more efficient 
-# edit scraper class to allow selection of features to scrape
+# edit scraper class to allow selection of features to scrape - done
 # histograms etc of calculated and scraped features
 
 
