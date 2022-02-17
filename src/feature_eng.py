@@ -14,7 +14,6 @@ class Feature_Engineering:
         self.input_data_df = self.soccer_data.get_matches_df()
         self.scraped_match_data_df = Feature_Engineering._get_scraped_match_data_df()
         self.feature_df = self._calculate_feature_df(calc_features)
-        # self.label_df = self._calculate_label_df
     
     # transform the scraped match data json into a dataframe
     @staticmethod
